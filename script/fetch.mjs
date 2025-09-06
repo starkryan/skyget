@@ -6,8 +6,7 @@ import CronStatus from "../models/Cron.js";
 import Lock from "../models/Lock.js";
 
 
-const MONGO_URI =
-  "mongodb://manager:Aman4242434@69.62.73.7:27017/manager?authSource=manager&retryWrites=true&w=majority&appName=Cluster0";
+const MONGO_URI = process.env.MONGODB_URI;
 
 // Escape regex special chars
 const escapeRegex = (s = "") =>
