@@ -4,19 +4,23 @@ import cron from "node-cron";
 import Numbers from "../models/Numbers.js";
 import Country from "../models/Countires.js";
 import Panel from "../models/Panel.js"; // Panel schema
+import CronStatus from "../models/Cron.js"; // Cron status model
 
-// 🔗 MongoDB connection
-const MONGO_URI = "mongodb://manager:Aman4242434@69.62.73.7:27017/manager?authSource=manager&retryWrites=true&w=majority&appName=Cluster0";
-await mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+// 🔗 MongoDB connection - use local MongoDB from .env.local
+const MONGO_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/mydatabase";
+await mongoose.connect(MONGO_URI);
 
-// 🔎 Ensure "India" exists in Country collection
+// 🔎 Ensure "India" exists in Country collection with all required fields
 async function getIndiaId() {
   let country = await Country.findOne({ name: "india" });
   if (!country) {
-    country = await Country.create({ name: "india" });
+    // Create India country with all required fields
+    country = await Country.create({
+      name: "india",
+      flag: "🇮🇳", // Default flag emoji
+      code: "IN", // Country code
+      dial: 91 // Country dial code
+    });
     console.log("🆕 Country 'India' created in DB");
   }
   return country._id;
@@ -36,7 +40,16 @@ async function syncGatewayStatus() {
     console.log(`🌐 Using Gateway URL: ${GATEWAY_URL}`);
 
     const res = await fetch(GATEWAY_URL);
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+    
     const data = await res.json();
+    
+    // Validate JSON structure
+    if (!data.status || !Array.isArray(data.status)) {
+      throw new Error("Invalid JSON response: missing or invalid status array");
+    }
 
     const ports = data.status;
     const indiaId = await getIndiaId();
@@ -82,13 +95,39 @@ async function syncGatewayStatus() {
     console.log(`🔒 Marked ${result.modifiedCount} numbers as inactive`);
 
     console.log(`[${new Date().toISOString()}] ✅ Synced ${ports.length} ports`);
+    
+    // Update cron status
+    await CronStatus.findOneAndUpdate(
+      { name: "syncGatewayStatus" },
+      { lastRun: new Date() },
+      { upsert: true, new: true }
+    );
+    
   } catch (err) {
     console.error("❌ Error syncing:", err.message);
   }
 }
 
+// Prevent overlapping runs
+let running = false;
 
 // 🕒 Run every 30 seconds
-cron.schedule("*/30 * * * * *", () => {
-  syncGatewayStatus();
+cron.schedule("*/30 * * * * *", async () => {
+  if (running) {
+    console.log("⏭ Previous run still in progress — skipping this tick");
+    return;
+  }
+  running = true;
+
+  console.log("\n==============================");
+  console.log("⏳ Gateway sync start:", new Date().toISOString());
+
+  try {
+    await syncGatewayStatus();
+    console.log("⏹ Gateway sync finished:", new Date().toISOString());
+  } catch (err) {
+    console.error("❌ Gateway sync runtime error:", err);
+  } finally {
+    running = false;
+  }
 });

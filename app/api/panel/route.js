@@ -14,11 +14,14 @@ export async function GET(req) {
   }
 }
 
-// Add or update panel (code 2 only)
+// Add or update panel (code 1 only)
 export async function POST(req) {
   await connectDB();
   try {
-    await verify(req); // 🔐 check token
+    const verification = await verify(req); // 🔐 check token
+    if (!verification.success) {
+      return NextResponse.json({ error: verification.error }, { status: verification.status });
+    }
 
     const { url } = await req.json();
     const panel = await Panel.findOneAndUpdate(
@@ -26,7 +29,7 @@ export async function POST(req) {
       { code: 1, url },
       { new: true, upsert: true }
     );
-    return NextResponse.json(panel);
+    return NextResponse.json({ message: "Panel URL saved successfully", panel });
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

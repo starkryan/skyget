@@ -25,10 +25,15 @@ export async function GET() {
 
     // Total activations (isused = true)
     const totalActivations = await Orders.countDocuments({ isused: true });
-const cron = await CronStatus.findOne({ name: "fetchOrders" });
+    
+    // Get the most recent cron run from either fetchOrders or syncGatewayStatus
+    const cronJobs = await CronStatus.find({
+      name: { $in: ["fetchOrders", "syncGatewayStatus"] }
+    }).sort({ lastRun: -1 });
+    
     let lastcron = "-";
-    if (cron?.lastRun) {
-      lastcron = new Date(cron.lastRun).toLocaleString("en-IN", {
+    if (cronJobs.length > 0 && cronJobs[0]?.lastRun) {
+      lastcron = new Date(cronJobs[0].lastRun).toLocaleString("en-IN", {
         timeZone: "Asia/Kolkata",
         hour12: true,
         hour: "2-digit",

@@ -37,10 +37,18 @@ export default function PanelPage() {
         },
         body: JSON.stringify({ url }),
       })
+      
       const data = await res.json()
-      alert(data.message || "Saved")
+      
+      if (!res.ok) {
+        alert(`Error: ${data.error || 'Failed to save URL'}`)
+        return
+      }
+      
+      alert(data.message || "Panel URL saved successfully")
     } catch (err) {
       console.error(err)
+      alert("Network error: Failed to save URL")
     } finally {
       setLoading(false)
     }

@@ -32,7 +32,12 @@ export default function DashboardPage() {
       }
     }
     fetchData()
-  }, [])
+    
+    // Set up polling every 5 seconds to update the data
+    const intervalId = setInterval(fetchData, 5000)
+    
+    return () => clearInterval(intervalId)
+  }, [token])
 
   // Convert lastcron to IST with AM/PM
   const formatIST = (dateStr: string | undefined) => {
